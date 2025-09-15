@@ -11,5 +11,8 @@ int run_simple_foreground(struct command *cmd);
 // handles piping: cmd1 | cmd2 
 int run_single_pipeline(struct command *cmd);
 
+//used to restore control
+void exec_set_shell_pgid(pid_t pgid);
+
 
 #endif /* EXEC_H */

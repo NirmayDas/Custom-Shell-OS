@@ -4,10 +4,21 @@
 #include <readline/readline.h>
 #include "parser.h"
 #include "exec.h"
+#include <unistd.h>
+#include <sys/types.h>
 
 int main(void) {
     signal(SIGINT, SIG_IGN); //ignore interrupt signal (crtl c)
     signal(SIGTSTP, SIG_IGN); //ignore stop signal (crtl z)
+    signal(SIGTTOU, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+
+    // this makes sure the shell is its own process group leader
+    setpgid(0, 0);
+    // this makes sure the shell's pgid owns the terminal
+    tcsetpgrp(STDIN_FILENO, getpgrp());
+    exec_set_shell_pgid(getpgrp());
+
 
     while(1) {
         char *line = readline("# ");

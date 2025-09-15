@@ -66,7 +66,10 @@ int run_simple_foreground(struct command *cmd) {
 
     // Else pid > 0, we are in the parent process:
     int status;
-    (void)waitpid(pid, &status, 0); //wait for the child process to finish
+    if (waitpid(pid, &status, WUNTRACED) == -1) { 
+        putchar('\n'); 
+        return 1; 
+    }
 
 
     putchar('\n');
@@ -190,8 +193,8 @@ int run_single_pipeline(struct command *cmd) {
 
     //parent  needs to wait for both children
     int statusLeft, statusRight;
-    waitpid(left, &statusLeft, 0);
-    waitpid(right, &statusRight, 0);
+    waitpid(left,  &statusLeft,  WUNTRACED);
+    waitpid(right, &statusRight, WUNTRACED);
 
     putchar('\n');
     return 1;
