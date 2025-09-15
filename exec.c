@@ -2,10 +2,19 @@
 #include "exec.h"
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/types.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <termios.h>
+#include "jobs.h"
 
-int run_simple_foreground(struct command *cmd) {
+static pid_t SHELL_PGID = -1;
+void exec_set_shell_pgid(pid_t pgid){
+    SHELL_PGID = pgid;
+    return;
+}
+
+int run_simple_foreground(struct command *cmd, const char *cmdline) {
     if (!cmd->argv || !cmd->argv[0] || cmd->has_pipe || cmd->background) {
         putchar('\n');
         return 0;
@@ -19,7 +28,9 @@ int run_simple_foreground(struct command *cmd) {
     }
 
     if(pid == 0){
-        //This if loop is for the child process
+        //This if branch is for the child process (pid == 0)
+        setpgid(0, 0); //put child in its own process group
+
         signal(SIGINT, SIG_DFL); //reset so crtl c/z exits the child process
         signal(SIGTSTP, SIG_DFL);
 
@@ -64,6 +75,14 @@ int run_simple_foreground(struct command *cmd) {
         _exit(0);
     }
 
+    //Parent side (implied pid > 0):
+    //Double check and ensure child's PGID is set (to protect against race conditions)
+    // If the parent code runs before the child executes a single instruction, the child wouldn't
+    // set its own pgid(0,0) so this check is for that 
+    setpgid(pid,pid);
+    //give terminal control to the child's process group
+    tcsetpgrp(STDIN_FILENO, pid);
+
     // Else pid > 0, we are in the parent process:
     int status;
     if (waitpid(pid, &status, WUNTRACED) == -1) { 
@@ -71,6 +90,13 @@ int run_simple_foreground(struct command *cmd) {
         return 1; 
     }
 
+    if (WIFSTOPPED(status)) {
+        // record this stopped fg command as a job
+        pid_t pids[1] = { pid };
+        jobs_add(pid, pids, 1, cmdline, STOPPED);
+    }
+
+    tcsetpgrp(STDIN_FILENO, SHELL_PGID);
 
     putchar('\n');
     return 1;
@@ -107,6 +133,7 @@ int run_single_pipeline(struct command *cmd) {
 
     if (left == 0) {
         // signals switch to default
+        setpgid(0,0);
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
 
@@ -154,6 +181,7 @@ int run_single_pipeline(struct command *cmd) {
     }
 
     if (right == 0) {
+        setpgid(0, left);
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
         
@@ -191,10 +219,92 @@ int run_single_pipeline(struct command *cmd) {
     close(fd[0]);
     close(fd[1]);
 
+    // race proof conditions
+    setpgid(left,  left);
+    setpgid(right, left);
+
+    // hand terminal control to the child job’s pgid (which is left pid)
+    tcsetpgrp(STDIN_FILENO, left);
+
     //parent  needs to wait for both children
     int statusLeft, statusRight;
     waitpid(left,  &statusLeft,  WUNTRACED);
     waitpid(right, &statusRight, WUNTRACED);
+
+    // restore shell control
+    tcsetpgrp(STDIN_FILENO, SHELL_PGID);
+
+    putchar('\n');
+    return 1;
+}
+
+int run_single_background(struct command *cmd, const char *cmdline){
+    //only single commands that aren't apart of a pip can be backgrounded
+    if(!cmd->argv || !cmd->argv[0] || cmd->has_pipe){
+        putchar('\n');
+        return 0;
+    }
+
+    pid_t pid = fork();
+    if(pid<0) {
+        putchar('\n');
+        return 0;
+    }
+
+    if(pid == 0){
+        //child process
+        setpgid(0, 0);
+
+        signal(SIGINT, SIG_DFL);
+        signal(SIGTSTP, SIG_DFL);
+
+        if(cmd->infile != NULL){
+            int fd = open(cmd->infile,O_RDONLY);
+            if(fd < 0){
+                _exit(0); //if the file is missing, we exit
+            }
+            if(dup2(fd, STDIN_FILENO) < 0){
+                _exit(0);
+            }
+            close(fd);
+        }
+
+        if(cmd->outfile != NULL){
+            int fd = open(cmd->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644); // 0644 same as S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH
+
+            if(fd < 0){
+                _exit(0); //if the file is missing, we exit
+            }
+            if(dup2(fd, STDOUT_FILENO) < 0){
+                _exit(0);
+            }
+            close(fd);
+        }
+
+        if(cmd->errfile != NULL){
+            int fd = open(cmd->errfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+            if(fd < 0){
+                _exit(0); //if the file is missing, we exit
+            }
+            if(dup2(fd, STDERR_FILENO) < 0){
+                _exit(0);
+            }
+            close(fd);
+        }
+
+        execvp(cmd->argv[0], cmd->argv);
+        //if we reach here then excevp has failed and we exit the child process
+        _exit(0);
+    }
+
+    //parent (pid > 0)
+    setpgid(pid, pid); // race safety line
+
+    // we don't want to give terminal control to this process since its background
+    // we don't want to wait either, we want to add jobs to the table as RUNNING (in background)
+    pid_t pids[1] = { pid };
+    jobs_add(pid, pids, 1, cmdline, RUNNING);
 
     putchar('\n');
     return 1;

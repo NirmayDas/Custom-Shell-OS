@@ -157,13 +157,6 @@ int parse_command(const char *line, struct command *cmd) {
         return 0;
     }
     
-    // for now, skip background 
-    if (cmd->background) {
-        free(buf);
-        free_command(cmd);
-        return 0;
-    }
-    
     free(buf);
     return 1;
 }

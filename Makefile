@@ -1,11 +1,9 @@
-# Makefile for YASH
-
 CC      = gcc
 CFLAGS  = -Wall -Wextra -g
 LDFLAGS = -lreadline
 
 # source files
-SRCS    = main.c parser.c exec.c
+SRCS    = main.c parser.c exec.c jobs.c
 OBJS    = $(SRCS:.c=.o)
 
 # output binary
@@ -16,7 +14,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 
-%.o: %.c parser.h exec.h
+%.o: %.c parser.h exec.h jobs.h
 	$(CC) $(CFLAGS) -c $<
 
 clean:
