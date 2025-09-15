@@ -91,7 +91,8 @@ int run_single_pipeline(struct command *cmd) {
         putchar('\n');
         return 0;
     }
-
+    
+    //Left side of pipe:
     pid_t left = fork();
     if (left < 0) {
         //if fork fails we exit
@@ -106,9 +107,28 @@ int run_single_pipeline(struct command *cmd) {
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
 
-        // wire stdout to fd[1]
-        if (dup2(fd[1], STDOUT_FILENO) < 0){
-            _exit(0);
+        //If left side in file exists, do this part like normal
+        if (cmd->infile) {
+            int fdin = open(cmd->infile, O_RDONLY);
+            if (fdin < 0) _exit(0);
+            if (dup2(fdin, STDIN_FILENO) < 0) _exit(0);
+            close(fdin);
+        }
+
+        if (cmd->outfile) {
+            int fdout = open(cmd->outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fdout < 0) _exit(0);
+            if (dup2(fdout, STDOUT_FILENO) < 0) _exit(0);
+            close(fdout);
+        } else {
+            if (dup2(fd[1], STDOUT_FILENO) < 0) _exit(0);
+        }
+
+        if (cmd->errfile) {
+            int fde = open(cmd->errfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fde < 0) _exit(0);
+            if (dup2(fde, STDERR_FILENO) < 0) _exit(0);
+            close(fde);
         }
 
         close(fd[0]);
@@ -118,6 +138,7 @@ int run_single_pipeline(struct command *cmd) {
         _exit(0);
     }
 
+    //Right side of pipe:
     pid_t right = fork();
     if (right < 0) {
         // if second fork fails, close fds, wait for left, and exit
@@ -133,8 +154,29 @@ int run_single_pipeline(struct command *cmd) {
         signal(SIGINT, SIG_DFL);
         signal(SIGTSTP, SIG_DFL);
         
-        //wire input to left side of pipe
-        if (dup2(fd[0], STDIN_FILENO) < 0) _exit(0);
+        //On the right side (input side), the file takes  priority over pipe
+        if (cmd->pipe_infile) {
+            int fdin = open(cmd->pipe_infile, O_RDONLY);
+            if (fdin < 0) _exit(0);
+            if (dup2(fdin, STDIN_FILENO) < 0) _exit(0);
+            close(fdin);
+        } else {
+            if (dup2(fd[0], STDIN_FILENO) < 0) _exit(0);
+        }
+
+        if (cmd->pipe_outfile) {
+            int fdout = open(cmd->pipe_outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fdout < 0) _exit(0);
+            if (dup2(fdout, STDOUT_FILENO) < 0) _exit(0);
+            close(fdout);
+        }
+
+        if (cmd->pipe_errfile) {
+            int fde = open(cmd->pipe_errfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fde < 0) _exit(0);
+            if (dup2(fde, STDERR_FILENO) < 0) _exit(0);
+            close(fde);
+        }
 
         close(fd[0]);
         close(fd[1]);
