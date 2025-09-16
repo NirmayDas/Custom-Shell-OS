@@ -62,7 +62,6 @@ int main(void) {
                     kill(-pgid, SIGCONT);
                     jobs_mark_running(slot);
                     printf("[%d]+  Running  %s \n", id, txt);
-                    putchar('\n');
                 } else {
                     //nothing to bg
                     putchar('\n');

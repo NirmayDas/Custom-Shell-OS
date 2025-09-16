@@ -19,6 +19,7 @@ int jobs_get_current_stopped(pid_t *pgid_out, int *slot_out, const char **cmd_ou
 // set RUNNING and make it current +
 void jobs_mark_running(int slot);
 
+int jobs_has_capacity(void);
 
 
 #endif

@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <unistd.h>
+#include <errno.h>
 #define MAX_JOBS 20
 
 typedef struct {
@@ -220,5 +223,14 @@ void jobs_mark_running(int slot) {
     for (int i = 0; i < MAX_JOBS; i++) if (jobs[i].in_use) jobs[i].marker = 2;
     jobs[slot].marker = 1;
     jobs[slot].state  = RUNNING;
+}
+
+int jobs_has_capacity(void) {
+    for (int i = 0; i < MAX_JOBS; i++){
+        if (!jobs[i].in_use){
+            return 1;
+        }
+    }
+    return 0;
 }
 

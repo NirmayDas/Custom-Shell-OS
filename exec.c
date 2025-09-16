@@ -54,7 +54,6 @@ int exec_foreground_job(pid_t pgid, int job_slot, job_state_t st, const char *cm
         jobs_remove(job_slot);
     }
 
-    putchar('\n');
     return 0;
 }
 
@@ -130,8 +129,7 @@ int run_simple_foreground(struct command *cmd, const char *cmdline) {
 
     // Else pid > 0, we are in the parent process:
     int status;
-    if (waitpid(pid, &status, WUNTRACED) == -1) { 
-        putchar('\n'); 
+    if (waitpid(pid, &status, WUNTRACED) == -1) {
         return 1; 
     }
 
@@ -143,7 +141,6 @@ int run_simple_foreground(struct command *cmd, const char *cmdline) {
 
     tcsetpgrp(STDIN_FILENO, SHELL_PGID);
 
-    putchar('\n');
     return 1;
 }
 
@@ -279,7 +276,6 @@ int run_single_pipeline(struct command *cmd) {
     // restore shell control
     tcsetpgrp(STDIN_FILENO, SHELL_PGID);
 
-    putchar('\n');
     return 1;
 }
 
@@ -288,6 +284,11 @@ int run_single_background(struct command *cmd, const char *cmdline){
     if(!cmd->argv || !cmd->argv[0] || cmd->has_pipe){
         putchar('\n');
         return 0;
+    }
+
+    if (!jobs_has_capacity()) { 
+        putchar('\n'); 
+        return 0; 
     }
 
     pid_t pid = fork();
@@ -349,7 +350,14 @@ int run_single_background(struct command *cmd, const char *cmdline){
     // we don't want to give terminal control to this process since its background
     // we don't want to wait either, we want to add jobs to the table as RUNNING (in background)
     pid_t pids[1] = { pid };
-    jobs_add(pid, pids, 1, cmdline, RUNNING);
+    int jid = jobs_add(pid, pids, 1, cmdline, RUNNING);
+    // if jid < 0 condition?
+    if (jid < 0) {
+        kill(-pid, SIGTERM);
+        waitpid(pid, NULL, 0);
+        putchar('\n');
+        return 0;
+    }
 
     return 1;
 }
