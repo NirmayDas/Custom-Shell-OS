@@ -7,12 +7,57 @@
 #include <fcntl.h>
 #include <termios.h>
 #include "jobs.h"
+#include <errno.h>
+
 
 static pid_t SHELL_PGID = -1;
 void exec_set_shell_pgid(pid_t pgid){
     SHELL_PGID = pgid;
     return;
 }
+
+int exec_foreground_job(pid_t pgid, int job_slot, job_state_t st, const char *cmdline) {
+    if(cmdline){
+        printf("%s\n", cmdline);
+    }
+
+    if (tcsetpgrp(STDIN_FILENO, pgid) == -1) {
+        tcsetpgrp(STDIN_FILENO, SHELL_PGID);
+        jobs_remove(job_slot);
+        putchar('\n');
+        return -1;
+    }
+
+    if (st == STOPPED){
+        kill(-pgid, SIGCONT);
+    }
+
+    int status;
+    while(1){
+        pid_t w = waitpid(-pgid, &status, WUNTRACED);
+        if (w == -1) {
+            if (errno == EINTR){
+                continue;
+            }
+            break;
+        }
+        if (WIFSTOPPED(status) || WIFEXITED(status) || WIFSIGNALED(status)){
+            break;
+        }
+    }
+
+    tcsetpgrp(STDIN_FILENO, SHELL_PGID);
+
+    if (WIFSTOPPED(status)) {
+        jobs_set_state(job_slot, STOPPED);
+    } else {
+        jobs_remove(job_slot);
+    }
+
+    putchar('\n');
+    return 0;
+}
+
 
 int run_simple_foreground(struct command *cmd, const char *cmdline) {
     if (!cmd->argv || !cmd->argv[0] || cmd->has_pipe || cmd->background) {
@@ -306,6 +351,5 @@ int run_single_background(struct command *cmd, const char *cmdline){
     pid_t pids[1] = { pid };
     jobs_add(pid, pids, 1, cmdline, RUNNING);
 
-    putchar('\n');
     return 1;
 }

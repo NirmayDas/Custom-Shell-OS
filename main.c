@@ -41,6 +41,32 @@ int main(void) {
                 run_single_pipeline(&cmd);
             } else if (cmd.argv && cmd.argv[0] && strcmp(cmd.argv[0], "jobs") == 0) {
                 jobs_print();
+            } else if (cmd.argv && cmd.argv[0] && strcmp(cmd.argv[0], "fg") == 0){
+                pid_t pgid; 
+                job_state_t st; 
+                const char *cmdtxt; 
+                int slot;
+                if (jobs_get_current(&pgid, &st, &cmdtxt, &slot) == 0) {
+                    exec_foreground_job(pgid, slot, st, cmdtxt);
+                } else {
+                    // no current job
+                    putchar('\n');
+                }
+            } else if (cmd.argv && cmd.argv[0] && strcmp(cmd.argv[0], "bg") == 0){
+                pid_t pgid; 
+                int slot; 
+                const char *txt; 
+                int id;
+                if (jobs_get_current_stopped(&pgid, &slot, &txt, &id) == 0) {
+                    // resume in background and send SIGCONT to the whole process group
+                    kill(-pgid, SIGCONT);
+                    jobs_mark_running(slot);
+                    printf("[%d]+  Running  %s \n", id, txt);
+                    putchar('\n');
+                } else {
+                    //nothing to bg
+                    putchar('\n');
+                }
             } else if (cmd.background){
                 run_single_background(&cmd, line);
             } else {

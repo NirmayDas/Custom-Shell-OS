@@ -46,7 +46,16 @@ int parse_command(const char *line, struct command *cmd) {
     int left_capacity = 0, right_capacity = 0;
     int parsing_side = 0; // 0 = left, 1 = right
 
+    int ampersand_seen = 0;  // flag to ensure & must be last
+
     while(curr_tok){
+        if (ampersand_seen) {  // any token after & needs to result ina parse error
+            free_temp_argv(left_argv, left_count);
+            free_temp_argv(right_argv, right_count);
+            free(buf); 
+            free_command(cmd);
+            return 0;
+        }
         if(is_special(curr_tok)){
             if (strcmp(curr_tok, "<") == 0) {
                 if(handle_input_redirection(cmd, curr_tok, &saveptr, delims, parsing_side) == 0){
@@ -73,6 +82,13 @@ int parse_command(const char *line, struct command *cmd) {
                     return 0;
                 }
             } else if (strcmp(curr_tok, "|") == 0) {
+                if (cmd->background) {
+                    free_temp_argv(left_argv, left_count);
+                    free_temp_argv(right_argv, right_count);
+                    free(buf); 
+                    free_command(cmd);
+                    return 0;
+                }
                 if(handle_pipe(cmd, curr_tok, &saveptr, delims, parsing_side) == 0){
                     free_temp_argv(left_argv, left_count);
                     free_temp_argv(right_argv, right_count);
@@ -82,6 +98,13 @@ int parse_command(const char *line, struct command *cmd) {
                 }
                 parsing_side = 1; // Switch to right side for piping
             } else if (strcmp(curr_tok, "&") == 0) {
+                if (cmd->has_pipe) {  // '|' and '&' cannot mix
+                    free_temp_argv(left_argv, left_count);
+                    free_temp_argv(right_argv, right_count);
+                    free(buf); 
+                    free_command(cmd);
+                    return 0;
+                }
                 if(handle_background(cmd, curr_tok, &saveptr, delims, parsing_side) == 0){
                     free_temp_argv(left_argv, left_count);
                     free_temp_argv(right_argv, right_count);
@@ -89,6 +112,7 @@ int parse_command(const char *line, struct command *cmd) {
                     free_command(cmd);
                     return 0;
                 }
+                ampersand_seen = 1; //set & flag
             }
         } else {
             if (parsing_side == 0) {
@@ -149,8 +173,14 @@ int parse_command(const char *line, struct command *cmd) {
         right_argv[right_count] = NULL;
         cmd->pipe_argv = right_argv;
     }
+
     
     // post validation
+    if (cmd->has_pipe && (!cmd->pipe_argv || !cmd->pipe_argv[0])) {
+        free(buf); 
+        free_command(cmd);
+        return 0;
+    }
     if (!cmd->argv || !cmd->argv[0]) {
         free(buf);
         free_command(cmd);
@@ -277,7 +307,6 @@ int handle_pipe(struct command *cmd, char *curr_tok, char **saveptr, const char 
 
 // Helper function to handle background (&) - placeholder for now
 int handle_background(struct command *cmd, char *curr_tok, char **saveptr, const char *delims, int parsing_side) {
-    // TODO: Implement background handling
     cmd->background = 1;
     return 1;
 }

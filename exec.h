@@ -3,9 +3,8 @@
 
 #include "parser.h"
 #include <sys/types.h>
+#include "jobs.h"
 
-// Run a single foreground command (no redirs/pipes/bg yet).
-// Returns 1 if it handled the command path, else 0.
 int run_simple_foreground(struct command *cmd, const char *cmdline);
 
 // handles piping: cmd1 | cmd2 
@@ -16,6 +15,8 @@ void exec_set_shell_pgid(pid_t pgid);
 
 //run a single background command (no pipes)
 int run_single_background(struct command *cmd, const char *cmdline);
+
+int exec_foreground_job(pid_t pgid, int job_slot, job_state_t st, const char *cmdline);
 
 
 #endif /* EXEC_H */
