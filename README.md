@@ -1,4 +1,4 @@
-# Custom Shell
+# My Custom Shell
 
 A lightweight command-line shell built in C to showcase systems programming and operating system concepts. This project demonstrates core OS skills including process management, signals, job control, and command execution.
 
@@ -86,3 +86,4 @@ bg
 This project was created to strengthen and showcase low-level programming skills in process management, job control, and system calls. It serves as a foundation for deeper operating system and systems programming work.
 
 ---
+
