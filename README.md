@@ -52,12 +52,9 @@ A lightweight command-line shell built in C to showcase systems programming and 
 
 ```bash
 # Clone and build
-git clone https://github.com/<your-username>/<repo-name>.git
-cd <repo-name>
+git clone https://github.com/NirmayDas/Custom-Shell-OS.git
+cd Custom-Shell-OS
 make
-
-# Run the shell
-./shell
 ```
 
 ## Example Usage
@@ -86,4 +83,5 @@ bg
 This project was created to strengthen and showcase low-level programming skills in process management, job control, and system calls. It serves as a foundation for deeper operating system and systems programming work.
 
 ---
+
 
