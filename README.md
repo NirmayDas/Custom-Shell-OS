@@ -2,6 +2,10 @@
 
 A lightweight command-line shell built in C to showcase systems programming and operating system concepts. This project demonstrates core OS skills including process management, signals, job control, and command execution.
 
+## Demo
+
+Here is a short [video demo](https://drive.google.com/file/d/11ixL2AqDshE8muo2L8Bd5Dhq8p5PbNeg/view?usp=sharing) showing the shell in action.
+
 ## Features
 
 * **Command Execution**
@@ -83,5 +87,6 @@ bg
 This project was created to strengthen and showcase low-level programming skills in process management, job control, and system calls. It serves as a foundation for deeper operating system and systems programming work.
 
 ---
+
 
 
